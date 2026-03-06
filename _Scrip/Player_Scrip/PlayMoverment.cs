@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -8,11 +9,9 @@ public class PlayMoverment : ObjOn1
     [SerializeField] protected PlayerCtl playerCtl;
     [SerializeField] protected float Speed = 5f;
     [SerializeField]public float JumpPower = 5f;
-
-
-    [SerializeField]protected LayerMask GroundLayer;
+    [SerializeField]protected Vector3 ClingPos;
     
-    [SerializeField]protected bool isGround;
+    [SerializeField]protected LayerMask layerMask;
 
     protected override void Loadcomponents()
     {
@@ -30,25 +29,27 @@ public class PlayMoverment : ObjOn1
     {
         this.Moving();
         this.Jumping();
-        this.SetAnimation();
+        this.Climbing();
+        this.Clinging();
     }
 
     protected virtual void Moving()
     {
-        float Horizontal = Input.GetAxis("Horizontal");
-        this.CheckFace(Horizontal);    
-        playerCtl.Rigi.velocity = new Vector2(Horizontal * Speed,playerCtl.Rigi.velocity.y);
+        float GetInitmove = InputManager.Instance.Horizontal;
+        this.CheckFace(GetInitmove);    
+        playerCtl.Rigi.velocity = new Vector2(GetInitmove * Speed,playerCtl.Rigi.velocity.y);
+        playerCtl.SetAnimation();
     }
 
     protected virtual void Jumping()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && this.isGround)
+        playerCtl.SetGround();
+        if (InputManager.Instance.KeySpace && playerCtl.IsGround)
         { 
             Vector2 JumpVt = new Vector2(playerCtl.Rigi.velocity.x,this.JumpPower);
             playerCtl.Rigi.AddForce(JumpVt,ForceMode2D.Impulse);
+            playerCtl.SetAnimation();
         }
-
-        this.isGround = Physics2D.OverlapCircle(playerCtl.GroundCheck.position,0.2f,this.GroundLayer);
     }
 
     protected virtual void CheckFace(float FaceCondition)
@@ -63,11 +64,57 @@ public class PlayMoverment : ObjOn1
         }
     }
 
-    protected virtual void SetAnimation()
+    protected virtual void Climbing()
     {
-        bool isJumping = !this.isGround;
-        bool isRuning = Mathf.Abs(playerCtl.Rigi.velocity.x) > 0.01f;
-        playerCtl.Animator.SetBool("_Run",isRuning);
-        playerCtl.Animator.SetBool("_Jump",isJumping);
+        if (this.playerCtl.ClimbCondition)
+        {
+            float Vertical = Input.GetAxis("Vertical");
+            playerCtl.Rigi.velocity = new Vector2(playerCtl.Rigi.velocity.x,Vertical * Speed);
+            playerCtl.SetAnimation();
+        } 
     }
+    protected virtual Vector3 Clinging()
+    {
+        if(this.ClingRaycast()){
+            if (InputManager.Instance.RightMouse)
+            {
+                return transform.parent.position = this.GetClingPOs();
+            }
+        }
+        return transform.parent.position;
+    }
+
+    protected virtual bool ClingRaycast()
+    {
+        layerMask = LayerMask.GetMask("Ground");
+        Vector3 origin = transform.parent.position + Vector3.up * 0.5f;
+        Vector2 RayAway = new Vector2(1,0);
+        if (Physics2D.Raycast(origin, transform.TransformDirection(RayAway),0.1f,layerMask))
+        {
+            Debug.DrawRay(transform.parent.position, RayAway, Color.blue); 
+            return true;
+        }
+        
+        Debug.DrawRay(transform.parent.position, RayAway * 1000, Color.white);
+        return false;
+    }
+
+    protected virtual Vector3 GetClingPOs()
+    {
+        return this.ClingPos = transform.parent.position;
+    }
+
+
 }
+
+
+    // protected virtual void RayvsRaycast()
+    // {
+    //     Debug.Log("333");
+    //     //Ray2D Ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+    //     if (Physics2D.GetRayIntersection(Camera.main.ScreenPointToRay(Input.mousePosition), 1000f))
+    //     {
+    //         Debug.Log("to hit");
+    //     }
+
+    // }
